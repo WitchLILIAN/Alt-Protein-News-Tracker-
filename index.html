@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>新蛋白新闻搜索</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --eco-green: #4CAF50;
+            --tech-blue: #03A9F4;
+            --innovation-purple: #9C27B0;
+            --light-green: #E8F5E9;
+            --light-blue: #E1F5FE;
+            --light-purple: #F3E5F5;
+        }
+        
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #2c3e50;
+        }
+        
+        .search-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            border-top: 4px solid var(--eco-green);
+        }
+        
+        .search-title {
+            color: var(--eco-green);
+            font-weight: bold;
+            margin-bottom: 25px;
+        }
+        
+        .results-table {
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .results-table th {
+            background-color: var(--eco-green);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .results-table td {
+            padding: 12px !important;
+        }
+        
+        /* 表格列背景色 */
+        .col-title { background-color: var(--light-green); }
+        .col-source { background-color: var(--light-blue); }
+        .col-date { background-color: var(--light-purple); }
+        .col-snippet { background-color: #fff; }
+        
+        .btn-primary {
+            background-color: var(--eco-green);
+            border-color: var(--eco-green);
+        }
+        
+        .btn-primary:hover {
+            background-color: #388E3C;
+            border-color: #388E3C;
+        }
+        
+        .form-control:focus {
+            border-color: var(--eco-green);
+            box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+        }
+        
+        .alert-info {
+            background-color: var(--light-blue);
+            border-color: var(--tech-blue);
+            color: #014361;
+        }
+        
+        .source-note {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1000;
+        }
+        
+        .loading-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            color: var(--eco-green);
+        }
+        
+        button:disabled {
+            background-color: #cccccc !important;
+            border-color: #cccccc !important;
+            cursor: not-allowed;
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--eco-green);
+            border-color: var(--eco-green);
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">
+        <div class="loading-content">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">正在搜索中，请稍候...</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="search-container">
+            <h2 class="search-title">新蛋白新闻搜索</h2>
+            <div class="alert alert-info">
+                今日剩余搜索次数：<span id="remaining-searches">{{ remaining_searches }}</span>
+            </div>
+            <form method="POST" onsubmit="return validateForm()">
+                <div class="row mb-4">
+                    <div class="col">
+                        <input type="text" name="keyword" class="form-control" placeholder="输入关键词" required>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col">
+                        <label class="form-label">开始日期：</label>
+                        <input type="date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="col">
+                        <label class="form-label">结束日期：</label>
+                        <input type="date" name="end_date" class="form-control" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">选择新闻来源：</label>
+                    <div class="source-note mb-2">💡 不选择任何来源则默认搜索全网相关新闻</div>
+                    <div class="form-check">
+                        <input type="checkbox" name="sources" value="greenqueen" class="form-check-input">
+                        <label class="form-check-label">Green Queen</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="sources" value="vegconomist" class="form-check-input">
+                        <label class="form-check-label">Vegconomist</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="sources" value="agfundnews" class="form-check-input">
+                        <label class="form-check-label">AgFunder News</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="sources" value="futurealternative" class="form-check-input">
+                        <label class="form-check-label">Future Alternative</label>
+                        <div class="source-note">⚠️ Future Alternative 2025年尚未更新新闻，搜索结果为"未找到匹配的结果"是正常情况 🫶</div>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="sources" value="worldbiomarket" class="form-check-input">
+                        <label class="form-check-label">World Bio Market Insights</label>
+                    </div>
+                </div>
+                <div class="mb-4 category-selection">
+                    <label class="form-label">选择相关领域（可多选）：</label>
+                    <div class="form-check">
+                        <input type="checkbox" name="categories" value="alternative_protein" class="form-check-input" checked>
+                        <label class="form-check-label">替代蛋白 
+                            <span class="text-muted">(alternative protein, plant-based protein, cultured meat, etc.)</span>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="categories" value="plant_based" class="form-check-input">
+                        <label class="form-check-label">植物基 
+                            <span class="text-muted">(plant-based food, plant-based meat, plant-based dairy, etc.)</span>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="categories" value="cultivated_meat" class="form-check-input">
+                        <label class="form-check-label">细胞培养 
+                            <span class="text-muted">(cultivated meat, cell-based meat, cellular agriculture, etc.)</span>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="categories" value="fermentation" class="form-check-input">
+                        <label class="form-check-label">发酵蛋白 
+                            <span class="text-muted">(precision fermentation, fermentation protein, biomass fermentation, etc.)</span>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="categories" value="food_policy" class="form-check-input">
+                        <label class="form-check-label">食品政策 
+                            <span class="text-muted">(food regulation, food policy, regulatory approval, etc.)</span>
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="search-btn" 
+                        {% if remaining_searches <= 0 %}disabled{% endif %}>搜索</button>
+            </form>
+        </div>
+
+        {% if results %}
+        <div class="results-table">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>标题</th>
+                        <th>来源</th>
+                        <th>日期</th>
+                        <th>摘要</th>
+                        <th>链接</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td class="col-title">{{ result.title }}</td>
+                        <td class="col-source">{{ result.source }}</td>
+                        <td class="col-date">{{ result.date }}</td>
+                        <td class="col-snippet">{{ result.snippet }}</td>
+                        <td><a href="{{ result.url }}" target="_blank" class="btn btn-sm btn-primary">查看</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    <script>
+        function validateForm() {
+            var remainingSearches = parseInt(document.getElementById('remaining-searches').textContent);
+            if (remainingSearches <= 0) {
+                alert('今日搜索次数已用完，请明天再试');
+                return false;
+            }
+            document.getElementById('loading').style.display = 'block';
+            return true;
+        }
+    </script>
+    <footer style="position: fixed; bottom: 10px; right: 10px; color: #aaa; font-size: 0.8em;">
+        © 2025 by WUQINLIN Lillian
+    </footer>
+</body>
+</html> 
